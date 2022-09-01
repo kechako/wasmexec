@@ -1,0 +1,20 @@
+= wasmexec
+
+WebAssembly のランタイムを実験的に実装していきます。
+
+== モジュール構成
+
+* cli: CLI アプリケーション
+* cmd
+** wasmexec: wasmexec コマンド
+* mod: wasm モジュール定義・デコーダー
+** instruction: wasm の命令
+** text: Text Format のデコーダー
+*** sexp: S式のパーサー
+
+== 実行方法
+
+[source, console]
+----
+go run ./cmd/wasmexec xxxxx.wat
+----
