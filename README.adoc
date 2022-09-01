@@ -18,3 +18,9 @@ WebAssembly のランタイムを実験的に実装していきます。
 ----
 go run ./cmd/wasmexec xxxxx.wat
 ----
+
+== TODO
+
+* [x] S式パーサーの実装
+* [x] Text Format のデコーダー実装
+* [ ] Runtime の実装
