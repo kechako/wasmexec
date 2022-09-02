@@ -6,19 +6,33 @@ import (
 	"github.com/kechako/wasmexec/mod/types"
 )
 
+type Local struct {
+	Index types.Index
+	Value Value
+}
+
 type FuncContext struct {
 	// 関数
 	f *mod.Function
 	// 実行中の命令位置
 	pos    int
 	locals map[string]Value
+
+	original *FuncContext
 }
 
-func newFuncContext(f *mod.Function) *FuncContext {
+func newFuncContext(f *mod.Function, locals []Local, original *FuncContext) *FuncContext {
+	localMap := make(map[string]Value)
+	for _, l := range locals {
+		key := makeIndexKey(l.Index)
+		localMap[key] = l.Value
+	}
+
 	return &FuncContext{
-		f:      f,
-		pos:    0,
-		locals: make(map[string]Value),
+		f:        f,
+		pos:      0,
+		locals:   localMap,
+		original: original,
 	}
 }
 
@@ -32,17 +46,28 @@ func (funcCtx *FuncContext) GetInstruction() instruction.Instruction {
 	return i
 }
 
-func (funcCtx *FuncContext) AddLocal(idx types.Index, value any) {
+func (funcCtx *FuncContext) SetLocal(idx types.Index, value any) error {
 	key := makeIndexKey(idx)
+	if _, ok := funcCtx.locals[key]; !ok {
+		return errLocalVariableInconsistent
+	}
+
 	funcCtx.locals[key] = NewValue(value)
+
+	return nil
 }
 
-func (funcCtx *FuncContext) GetLocalInt32(idx types.Index) (int32, bool) {
+func (funcCtx *FuncContext) GetLocalInt32(idx types.Index) (int32, error) {
 	key := makeIndexKey(idx)
 	value, ok := funcCtx.locals[key]
 	if !ok {
-		return 0, false
+		return 0, errLocalVariableInconsistent
 	}
 
-	return value.Int32()
+	v, ok := value.Int32()
+	if !ok {
+		return 0, errLocalVariableInconsistent
+	}
+
+	return v, nil
 }

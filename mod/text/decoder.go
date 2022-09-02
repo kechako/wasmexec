@@ -128,13 +128,45 @@ func parseFunction(node *sexp.Node) (*mod.Function, error) {
 	}
 
 	curr := node
-	for curr != nil && isFunctionSignature(curr.Car) {
+
+	// parse params
+	for curr != nil && isFunctionParam(curr.Car) {
 		car := curr.Car
 
-		err := parseFunctionSignature(f, car)
+		p, err := parseLocal(car.Cdr)
 		if err != nil {
 			return nil, err
 		}
+
+		f.Parameters = append(f.Parameters, p)
+
+		curr = curr.Cdr
+	}
+
+	// parse locals
+	for curr != nil && isFunctionLocal(curr.Car) {
+		car := curr.Car
+
+		l, err := parseLocal(car.Cdr)
+		if err != nil {
+			return nil, err
+		}
+
+		f.Locals = append(f.Locals, l)
+
+		curr = curr.Cdr
+	}
+
+	// parse results
+	for curr != nil && isFunctionResult(curr.Car) {
+		car := curr.Car
+
+		r, err := parseResult(car.Cdr)
+		if err != nil {
+			return nil, err
+		}
+
+		f.Results = append(f.Results, r)
 
 		curr = curr.Cdr
 	}
@@ -148,7 +180,7 @@ func parseFunction(node *sexp.Node) (*mod.Function, error) {
 	return f, nil
 }
 
-func isFunctionSignature(node *sexp.Node) bool {
+func isFunctionParam(node *sexp.Node) bool {
 	if node == nil || node.Type != sexp.NodeCell {
 		return false
 	}
@@ -157,43 +189,37 @@ func isFunctionSignature(node *sexp.Node) bool {
 	if !ok {
 		return false
 	}
-	switch sym {
-	case "param", "result":
-		return true
-	}
 
-	return false
+	return sym == "param"
 }
 
-func parseFunctionSignature(f *mod.Function, node *sexp.Node) error {
-	car := node.Car
+func isFunctionLocal(node *sexp.Node) bool {
+	if node == nil || node.Type != sexp.NodeCell {
+		return false
+	}
 
-	sym, ok := car.SymbolValue()
+	sym, ok := node.Car.SymbolValue()
 	if !ok {
-		return errInvalidModuleFormat
+		return false
 	}
 
-	switch sym {
-	case "param":
-		p, err := parseParameter(node.Cdr)
-		if err != nil {
-			return err
-		}
-		f.Parameters = append(f.Parameters, p)
-	case "result":
-		r, err := parseResult(node.Cdr)
-		if err != nil {
-			return err
-		}
-		f.Results = append(f.Results, r)
-	default:
-		return errInvalidModuleFormat
-	}
-
-	return nil
+	return sym == "local"
 }
 
-func parseParameter(node *sexp.Node) (*mod.Parameter, error) {
+func isFunctionResult(node *sexp.Node) bool {
+	if node == nil || node.Type != sexp.NodeCell {
+		return false
+	}
+
+	sym, ok := node.Car.SymbolValue()
+	if !ok {
+		return false
+	}
+
+	return sym == "result"
+}
+
+func parseLocal(node *sexp.Node) (*mod.Local, error) {
 	if node == nil {
 		return nil, errInvalidModuleFormat
 	}
@@ -225,7 +251,7 @@ func parseParameter(node *sexp.Node) (*mod.Parameter, error) {
 		return nil, errInvalidModuleFormat
 	}
 
-	return &mod.Parameter{
+	return &mod.Local{
 		ID:   id,
 		Type: typ,
 	}, nil

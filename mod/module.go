@@ -13,12 +13,13 @@ type Module struct {
 
 type Function struct {
 	ID           types.ID
-	Parameters   []*Parameter
+	Parameters   []*Local
+	Locals       []*Local
 	Results      []*Result
 	Instructions []instruction.Instruction
 }
 
-type Parameter struct {
+type Local struct {
 	ID   types.ID
 	Type types.Type
 }

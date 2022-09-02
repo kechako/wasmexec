@@ -109,7 +109,7 @@ func dumpFunction(f *mod.Function, index int, indent string) {
 	}
 }
 
-func dumpParameter(p *mod.Parameter, index int, indent string) {
+func dumpParameter(p *mod.Local, index int, indent string) {
 	if p.ID.IsEmpty() {
 		fmt.Printf("%sParam[%d]: %s\n", indent, index, p.Type)
 	} else {
