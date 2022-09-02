@@ -169,6 +169,100 @@ loop:
 				return errIntegerDivideByZero
 			}
 			vm.stack.Push(newValueElement(c1 / c2))
+		case instruction.I32Eqz:
+			c1, ok := vm.stack.Pop().Int32()
+			if !ok {
+				return errStackInconsistent
+			}
+			var b int32
+			if c1 == 0 {
+				b = 1
+			}
+			vm.stack.Push(newValueElement(b))
+		case instruction.I32Eq:
+			c2, ok := vm.stack.Pop().Int32()
+			if !ok {
+				return errStackInconsistent
+			}
+			c1, ok := vm.stack.Pop().Int32()
+			if !ok {
+				return errStackInconsistent
+			}
+			var b int32
+			if c1 == c2 {
+				b = 1
+			}
+			vm.stack.Push(newValueElement(b))
+		case instruction.I32Ne:
+			c2, ok := vm.stack.Pop().Int32()
+			if !ok {
+				return errStackInconsistent
+			}
+			c1, ok := vm.stack.Pop().Int32()
+			if !ok {
+				return errStackInconsistent
+			}
+			var b int32
+			if c1 != c2 {
+				b = 1
+			}
+			vm.stack.Push(newValueElement(b))
+		case instruction.I32LtS:
+			c2, ok := vm.stack.Pop().Int32()
+			if !ok {
+				return errStackInconsistent
+			}
+			c1, ok := vm.stack.Pop().Int32()
+			if !ok {
+				return errStackInconsistent
+			}
+			var b int32
+			if c1 < c2 {
+				b = 1
+			}
+			vm.stack.Push(newValueElement(b))
+		case instruction.I32GtS:
+			c2, ok := vm.stack.Pop().Int32()
+			if !ok {
+				return errStackInconsistent
+			}
+			c1, ok := vm.stack.Pop().Int32()
+			if !ok {
+				return errStackInconsistent
+			}
+			var b int32
+			if c1 > c2 {
+				b = 1
+			}
+			vm.stack.Push(newValueElement(b))
+		case instruction.I32LeS:
+			c2, ok := vm.stack.Pop().Int32()
+			if !ok {
+				return errStackInconsistent
+			}
+			c1, ok := vm.stack.Pop().Int32()
+			if !ok {
+				return errStackInconsistent
+			}
+			var b int32
+			if c1 <= c2 {
+				b = 1
+			}
+			vm.stack.Push(newValueElement(b))
+		case instruction.I32GeS:
+			c2, ok := vm.stack.Pop().Int32()
+			if !ok {
+				return errStackInconsistent
+			}
+			c1, ok := vm.stack.Pop().Int32()
+			if !ok {
+				return errStackInconsistent
+			}
+			var b int32
+			if c1 >= c2 {
+				b = 1
+			}
+			vm.stack.Push(newValueElement(b))
 		case instruction.Drop:
 			elm := vm.stack.Pop()
 			if elm.Type != ValueElement {
