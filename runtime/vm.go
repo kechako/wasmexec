@@ -128,6 +128,26 @@ loop:
 				return result, errStackInconsistent
 			}
 			vm.stack.Push(newValueElement(c1 - c2))
+		case instruction.I32Mul:
+			c2, ok := vm.stack.Pop().Int32Value()
+			if !ok {
+				return result, errStackInconsistent
+			}
+			c1, ok := vm.stack.Pop().Int32Value()
+			if !ok {
+				return result, errStackInconsistent
+			}
+			vm.stack.Push(newValueElement(c1 * c2))
+		case instruction.I32DivS:
+			c2, ok := vm.stack.Pop().Int32Value()
+			if !ok {
+				return result, errStackInconsistent
+			}
+			c1, ok := vm.stack.Pop().Int32Value()
+			if !ok {
+				return result, errStackInconsistent
+			}
+			vm.stack.Push(newValueElement(c1 / c2))
 		case instruction.Return:
 			break loop
 		}

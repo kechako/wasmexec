@@ -7,6 +7,8 @@ const (
 	I32Const InstructionName = "i32.const"
 	I32Add   InstructionName = "i32.add"
 	I32Sub   InstructionName = "i32.sub"
+	I32Mul   InstructionName = "i32.mul"
+	I32DivS  InstructionName = "i32.div_s"
 
 	// Parametric instruction
 	Drop InstructionName = "drop"
@@ -21,7 +23,7 @@ func (name InstructionName) IsValid() bool {
 
 func (name InstructionName) IsI32() bool {
 	switch name {
-	case I32Const, I32Add, I32Sub:
+	case I32Const, I32Add, I32Sub, I32Mul, I32DivS:
 		return true
 	}
 

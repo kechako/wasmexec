@@ -24,6 +24,10 @@ var tests = map[string]struct {
    i32.add
    i32.const 4
    i32.sub
+   i32.const 3
+   i32.mul
+   i32.const 7
+   i32.div_s
    return
      drop 
     i32.const 0
@@ -48,6 +52,10 @@ var tests = map[string]struct {
 						&instruction.I32{Instruction: instruction.I32Add},
 						&instruction.I32{Instruction: instruction.I32Const, Values: []int32{4}},
 						&instruction.I32{Instruction: instruction.I32Sub},
+						&instruction.I32{Instruction: instruction.I32Const, Values: []int32{3}},
+						&instruction.I32{Instruction: instruction.I32Mul},
+						&instruction.I32{Instruction: instruction.I32Const, Values: []int32{7}},
+						&instruction.I32{Instruction: instruction.I32DivS},
 						&instruction.Control{Instruction: instruction.Return},
 						&instruction.Parametric{Instruction: instruction.Drop},
 						&instruction.I32{Instruction: instruction.I32Const, Values: []int32{0}},
