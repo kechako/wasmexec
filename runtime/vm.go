@@ -169,6 +169,11 @@ loop:
 				return errIntegerDivideByZero
 			}
 			vm.stack.Push(newValueElement(c1 / c2))
+		case instruction.Drop:
+			elm := vm.stack.Pop()
+			if elm.Type != ValueElement {
+				return errStackInconsistent
+			}
 		case instruction.LocalGet:
 			i := i.(*instruction.Variable)
 			v, err := funcCtx.GetLocalInt32(i.Index)
