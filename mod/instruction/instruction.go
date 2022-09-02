@@ -13,8 +13,14 @@ const (
 	// Parametric instruction
 	Drop InstructionName = "drop"
 
+	// Variable Instructions
+	LocalGet InstructionName = "local.get"
+	LocalSet InstructionName = "local.set"
+	LocalTee InstructionName = "local.tee"
+
 	// ControlInstruction
 	Return InstructionName = "return"
+	Call   InstructionName = "call"
 )
 
 func (name InstructionName) IsValid() bool {
@@ -39,9 +45,18 @@ func (name InstructionName) IsParametric() bool {
 	return false
 }
 
+func (name InstructionName) IsVariable() bool {
+	switch name {
+	case LocalGet, LocalSet, LocalTee:
+		return true
+	}
+
+	return false
+}
+
 func (name InstructionName) IsControl() bool {
 	switch name {
-	case Return:
+	case Return, Call:
 		return true
 	}
 

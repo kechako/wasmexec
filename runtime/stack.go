@@ -12,24 +12,24 @@ const (
 
 type Element struct {
 	Type  ElementType
-	Value any
+	Value Value
 }
 
 func newValueElement(v any) *Element {
 	return &Element{
 		Type:  ValueElement,
-		Value: v,
+		Value: NewValue(v),
 	}
 }
 
 func newActivationElement(funcCtx *FuncContext) *Element {
 	return &Element{
 		Type:  ActivationElement,
-		Value: funcCtx,
+		Value: NewValue(funcCtx),
 	}
 }
 
-func (elm *Element) Int32Value() (int32, bool) {
+func (elm *Element) Int32() (int32, bool) {
 	return getElementValue[int32](elm, ValueElement)
 }
 
@@ -41,12 +41,8 @@ func getElementValue[T any](elm *Element, typ ElementType) (value T, ok bool) {
 	if elm.Type != typ {
 		return value, false
 	}
-	value, ok = elm.Value.(T)
-	if !ok {
-		return value, false
-	}
 
-	return value, true
+	return GetValue[T](elm.Value)
 }
 
 type Stack struct {

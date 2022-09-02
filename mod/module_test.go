@@ -1,9 +1,13 @@
 package mod
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/kechako/wasmexec/mod/types"
+)
 
 var idTests = []struct {
-	id    ID
+	id    types.ID
 	valid bool
 }{
 	{

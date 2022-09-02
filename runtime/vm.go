@@ -8,6 +8,7 @@ import (
 
 	"github.com/kechako/wasmexec/mod"
 	"github.com/kechako/wasmexec/mod/instruction"
+	"github.com/kechako/wasmexec/mod/types"
 )
 
 type VM struct {
@@ -38,10 +39,13 @@ func New(m *mod.Module, opts ...Option) *VM {
 }
 
 var (
-	errExportNotFound          = errors.New("export is not found")
-	errExportTargetNotFunction = errors.New("export target is not a function")
-	errFunctionNotFound        = errors.New("function is not found")
-	errStackInconsistent       = errors.New("stack is inconsistent")
+	errExportNotFound            = errors.New("export is not found")
+	errExportTargetNotFunction   = errors.New("export target is not a function")
+	errFunctionNotFound          = errors.New("function is not found")
+	errStackInconsistent         = errors.New("stack is inconsistent")
+	errLocalVariableInconsistent = errors.New("local variables are inconsistent")
+	errIntegerDivideByZero       = errors.New("integer divide by zero")
+	errUnsupportedType           = errors.New("unsupported type")
 )
 
 func (vm *VM) ExecFunc(ctx context.Context, name string) error {
@@ -57,12 +61,20 @@ func (vm *VM) ExecFunc(ctx context.Context, name string) error {
 	}
 
 	// 関数を検索
-	f, ok := vm.funcs[makeFuncKey(e.Index)]
+	f, ok := vm.funcs[makeIndexKey(e.Index)]
 	if !ok {
 		return errFunctionNotFound
 	}
 
-	typ := mod.I32
+	result, err := callFuncAny(ctx, vm, f)
+
+	fmt.Println(result)
+
+	return err
+}
+
+func callFuncAny(ctx context.Context, vm *VM, f *mod.Function) (any, error) {
+	typ := types.I32
 	if len(f.Results) > 0 {
 		typ = f.Results[0].Type
 	}
@@ -70,22 +82,20 @@ func (vm *VM) ExecFunc(ctx context.Context, name string) error {
 	var result any
 	var err error
 	switch typ {
-	case mod.I32:
+	case types.I32:
 		result, err = callFunc[int32](ctx, vm, f)
-	case mod.I64:
+	case types.I64:
 		result, err = callFunc[int64](ctx, vm, f)
-	case mod.F32:
+	case types.F32:
 		result, err = callFunc[float32](ctx, vm, f)
-	case mod.F64:
+	case types.F64:
 		result, err = callFunc[float64](ctx, vm, f)
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	fmt.Println(result)
-
-	return err
+	return result, nil
 }
 
 type resultValue interface {
@@ -94,6 +104,26 @@ type resultValue interface {
 
 func callFunc[T resultValue](ctx context.Context, vm *VM, f *mod.Function) (result T, err error) {
 	funcCtx := newFuncContext(f)
+
+	if len(f.Parameters) > 0 {
+		for i := len(f.Parameters) - 1; i >= 0; i-- {
+			p := f.Parameters[i]
+			switch p.Type {
+			case types.I32:
+				v, ok := vm.stack.Pop().Int32()
+				if !ok {
+					return result, errStackInconsistent
+				}
+				idx := types.NewIndex(i)
+				if !p.ID.IsEmpty() {
+					idx = types.NewIndexWithID(p.ID)
+				}
+				funcCtx.AddLocal(idx, v)
+			default:
+				return result, errUnsupportedType
+			}
+		}
+	}
 
 	vm.stack.Push(newActivationElement(funcCtx))
 
@@ -109,47 +139,86 @@ loop:
 			i := i.(*instruction.I32)
 			vm.stack.Push(newValueElement(i.Values[0]))
 		case instruction.I32Add:
-			c2, ok := vm.stack.Pop().Int32Value()
+			c2, ok := vm.stack.Pop().Int32()
 			if !ok {
 				return result, errStackInconsistent
 			}
-			c1, ok := vm.stack.Pop().Int32Value()
+			c1, ok := vm.stack.Pop().Int32()
 			if !ok {
 				return result, errStackInconsistent
 			}
 			vm.stack.Push(newValueElement(c1 + c2))
 		case instruction.I32Sub:
-			c2, ok := vm.stack.Pop().Int32Value()
+			c2, ok := vm.stack.Pop().Int32()
 			if !ok {
 				return result, errStackInconsistent
 			}
-			c1, ok := vm.stack.Pop().Int32Value()
+			c1, ok := vm.stack.Pop().Int32()
 			if !ok {
 				return result, errStackInconsistent
 			}
 			vm.stack.Push(newValueElement(c1 - c2))
 		case instruction.I32Mul:
-			c2, ok := vm.stack.Pop().Int32Value()
+			c2, ok := vm.stack.Pop().Int32()
 			if !ok {
 				return result, errStackInconsistent
 			}
-			c1, ok := vm.stack.Pop().Int32Value()
+			c1, ok := vm.stack.Pop().Int32()
 			if !ok {
 				return result, errStackInconsistent
 			}
 			vm.stack.Push(newValueElement(c1 * c2))
 		case instruction.I32DivS:
-			c2, ok := vm.stack.Pop().Int32Value()
+			c2, ok := vm.stack.Pop().Int32()
 			if !ok {
 				return result, errStackInconsistent
 			}
-			c1, ok := vm.stack.Pop().Int32Value()
+			c1, ok := vm.stack.Pop().Int32()
 			if !ok {
 				return result, errStackInconsistent
+			}
+			if c2 == 0 {
+				return result, errIntegerDivideByZero
 			}
 			vm.stack.Push(newValueElement(c1 / c2))
+		case instruction.LocalGet:
+			i := i.(*instruction.Variable)
+			v, ok := funcCtx.GetLocalInt32(i.Index)
+			if !ok {
+				return result, errLocalVariableInconsistent
+			}
+			vm.stack.Push(newValueElement(v))
+		case instruction.LocalSet:
+			i := i.(*instruction.Variable)
+			execLocalSet(vm, funcCtx, i.Index)
+		case instruction.LocalTee:
+			i := i.(*instruction.Variable)
+			elm := vm.stack.Pop()
+			if elm.Type != ValueElement {
+				return result, errStackInconsistent
+			}
+			vm.stack.Push(newValueElement(elm.Value.Value))
+			vm.stack.Push(newValueElement(elm.Value.Value))
+			execLocalSet(vm, funcCtx, i.Index)
 		case instruction.Return:
 			break loop
+		case instruction.Call:
+			i := i.(*instruction.Control)
+			index := i.Values[0].(types.Index)
+			key := makeIndexKey(index)
+			f, ok := vm.funcs[key]
+			if !ok {
+				return result, errFunctionNotFound
+			}
+
+			// TODO: ローカル変数のチェック
+
+			ret, err := callFuncAny(ctx, vm, f)
+			if err != nil {
+				return result, err
+			}
+
+			vm.stack.Push(newValueElement(ret))
 		}
 	}
 
@@ -194,7 +263,20 @@ func (vm *VM) makeExportTable() {
 	}
 }
 
-func makeFuncKey(idx mod.Index) string {
+func execLocalSet(vm *VM, funcCtx *FuncContext, index types.Index) error {
+	// TODO: local の存在チェック
+
+	elm := vm.stack.Pop()
+	if elm.Type != ValueElement {
+		return errStackInconsistent
+	}
+
+	funcCtx.AddLocal(index, elm.Value.Value)
+
+	return nil
+}
+
+func makeIndexKey(idx types.Index) string {
 	if idx.IsIndex() {
 		return strconv.Itoa(idx.Index)
 	}

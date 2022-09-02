@@ -7,6 +7,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/kechako/wasmexec/mod"
 	"github.com/kechako/wasmexec/mod/instruction"
+	"github.com/kechako/wasmexec/mod/types"
 )
 
 var tests = map[string]struct {
@@ -40,11 +41,11 @@ var tests = map[string]struct {
 				{
 					ID: "$main",
 					Parameters: []*mod.Parameter{
-						{ID: "$a", Type: mod.I32},
-						{ID: "$b", Type: mod.I64},
+						{ID: "$a", Type: types.I32},
+						{ID: "$b", Type: types.I64},
 					},
 					Results: []*mod.Result{
-						{Type: mod.I32},
+						{Type: types.I32},
 					},
 					Instructions: []instruction.Instruction{
 						&instruction.I32{Instruction: instruction.I32Const, Values: []int32{5}},
@@ -63,7 +64,7 @@ var tests = map[string]struct {
 				},
 			},
 			Exports: []*mod.Export{
-				{Name: "main", Target: mod.ExportFunction, Index: mod.Index{ID: "$main"}},
+				{Name: "main", Target: mod.ExportFunction, Index: types.NewIndexWithID("$main")},
 			},
 		},
 		err: nil,

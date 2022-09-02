@@ -8,6 +8,7 @@ import (
 	"github.com/kechako/wasmexec/mod"
 	"github.com/kechako/wasmexec/mod/instruction"
 	"github.com/kechako/wasmexec/mod/text/sexp"
+	"github.com/kechako/wasmexec/mod/types"
 )
 
 type Decoder struct {
@@ -58,7 +59,7 @@ func parseModule(node *sexp.Node) (*mod.Module, error) {
 		case sexp.NodeSymbol:
 			if first {
 				v, _ := car.SymbolValue()
-				id := mod.ID(v)
+				id := types.ID(v)
 				if !id.IsValid() {
 					return nil, errInvalidModuleFormat
 				}
@@ -109,9 +110,9 @@ func parseFunction(node *sexp.Node) (*mod.Function, error) {
 	}
 
 	// id (optional)
-	var id mod.ID
+	var id types.ID
 	if v, ok := node.Car.SymbolValue(); ok {
-		id = mod.ID(v)
+		id = types.ID(v)
 		if !id.IsValid() {
 			return nil, errInvalidModuleFormat
 		}
@@ -198,10 +199,10 @@ func parseParameter(node *sexp.Node) (*mod.Parameter, error) {
 	}
 
 	// id (optional)
-	var id mod.ID
+	var id types.ID
 	if node.Cdr != nil {
 		if v, ok := node.Car.SymbolValue(); ok {
-			id = mod.ID(v)
+			id = types.ID(v)
 			if !id.IsValid() {
 				return nil, errInvalidModuleFormat
 			}
@@ -220,7 +221,7 @@ func parseParameter(node *sexp.Node) (*mod.Parameter, error) {
 	}
 
 	typ := parseType(v)
-	if typ == mod.Unkown {
+	if typ == types.Unkown {
 		return nil, errInvalidModuleFormat
 	}
 
@@ -230,19 +231,19 @@ func parseParameter(node *sexp.Node) (*mod.Parameter, error) {
 	}, nil
 }
 
-func parseType(s string) mod.Type {
+func parseType(s string) types.Type {
 	switch s {
 	case "i32":
-		return mod.I32
+		return types.I32
 	case "i64":
-		return mod.I64
+		return types.I64
 	case "f32":
-		return mod.F32
+		return types.F32
 	case "f64":
-		return mod.F64
+		return types.F64
 	}
 
-	return mod.Unkown
+	return types.Unkown
 }
 
 func parseResult(node *sexp.Node) (*mod.Result, error) {
@@ -257,7 +258,7 @@ func parseResult(node *sexp.Node) (*mod.Result, error) {
 	}
 
 	typ := parseType(v)
-	if typ == mod.Unkown {
+	if typ == types.Unkown {
 		return nil, errInvalidModuleFormat
 	}
 
@@ -311,6 +312,14 @@ func parseInstruction(node *sexp.Node) (instruction.Instruction, *sexp.Node, err
 		return nil, nil, err
 	}
 
+	i, next, err = parseVariableInstruction(v, node.Cdr)
+	if err == nil {
+		return i, next, nil
+	}
+	if err != nil && err != errUnsupportedInstruction {
+		return nil, nil, err
+	}
+
 	i, next, err = parseControlInstruction(v, node.Cdr)
 	if err == nil {
 		return i, next, nil
@@ -356,10 +365,37 @@ func parseParametricInstruction(sym string, node *sexp.Node) (instruction.Instru
 	}, node, nil
 }
 
+func parseVariableInstruction(sym string, node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
+	iname := instruction.InstructionName(sym)
+	if !iname.IsVariable() {
+		return nil, nil, errUnsupportedInstruction
+	}
+
+	index, err := parseIndex(node)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &instruction.Variable{
+		Instruction: iname,
+		Index:       index,
+	}, node.Cdr, nil
+}
+
 func parseControlInstruction(sym string, node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
 	iname := instruction.InstructionName(sym)
 	if !iname.IsControl() {
 		return nil, nil, errUnsupportedInstruction
+	}
+
+	if iname == instruction.Call {
+		index, err := parseIndex(node)
+		if err != nil {
+			return nil, nil, err
+		}
+		return &instruction.Control{
+			Instruction: iname,
+			Values:      []any{index},
+		}, node.Cdr, nil
 	}
 
 	return &instruction.Control{
@@ -405,17 +441,9 @@ func parseExport(node *sexp.Node) (*mod.Export, error) {
 	}
 
 	// index
-	var index mod.Index
-	if idx, ok := node.Car.IntValue(); ok {
-		index.Index = int(idx)
-	} else if v, ok := node.Car.SymbolValue(); ok {
-		id := mod.ID(v)
-		if !id.IsValid() {
-			return nil, errInvalidModuleFormat
-		}
-		index.ID = id
-	} else {
-		return nil, errInvalidModuleFormat
+	index, err := parseIndex(node)
+	if err != nil {
+		return nil, err
 	}
 
 	return &mod.Export{
@@ -438,4 +466,21 @@ func parseExportTarget(s string) (mod.ExportTarget, error) {
 	}
 
 	return "", errInvalidModuleFormat
+}
+
+func parseIndex(node *sexp.Node) (types.Index, error) {
+	var index types.Index
+	if idx, ok := node.Car.IntValue(); ok {
+		index.Index = int(idx)
+	} else if v, ok := node.Car.SymbolValue(); ok {
+		id := types.ID(v)
+		if !id.IsValid() {
+			return index, errInvalidModuleFormat
+		}
+		index.ID = id
+	} else {
+		return index, errInvalidModuleFormat
+	}
+
+	return index, nil
 }
