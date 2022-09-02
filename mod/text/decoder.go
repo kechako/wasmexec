@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/kechako/wasmexec/mod"
 	"github.com/kechako/wasmexec/mod/instruction"
@@ -128,7 +127,7 @@ func parseFunction(node *sexp.Node) (*mod.Function, error) {
 	}
 
 	curr := node
-	for curr != nil && curr.Car.Type == sexp.NodeCell {
+	for curr != nil && isFunctionSignature(curr.Car) {
 		car := curr.Car
 
 		err := parseFunctionSignature(f, car)
@@ -146,6 +145,23 @@ func parseFunction(node *sexp.Node) (*mod.Function, error) {
 	f.Instructions = instructions
 
 	return f, nil
+}
+
+func isFunctionSignature(node *sexp.Node) bool {
+	if node == nil || node.Type != sexp.NodeCell {
+		return false
+	}
+
+	sym, ok := node.Car.SymbolValue()
+	if !ok {
+		return false
+	}
+	switch sym {
+	case "param", "result":
+		return true
+	}
+
+	return false
 }
 
 func parseFunctionSignature(f *mod.Function, node *sexp.Node) error {
@@ -307,51 +323,47 @@ func parseInstruction(node *sexp.Node) (instruction.Instruction, *sexp.Node, err
 }
 
 func parseI32Instruction(sym string, node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
-	if !strings.HasPrefix(sym, "i32.") {
+	iname := instruction.InstructionName(sym)
+	if !iname.IsI32() {
 		return nil, nil, errUnsupportedInstruction
 	}
 
-	i := instruction.InstructionName(sym)
-	if !i.IsValid() {
-		return nil, nil, errUnsupportedInstruction
-	}
-
-	switch i {
+	switch iname {
 	case instruction.I32Const:
 		n, ok := node.Car.IntValue()
 		if !ok {
 			return nil, nil, errInvalidModuleFormat
 		}
 		return &instruction.I32{
-			Instruction: i,
+			Instruction: iname,
 			Values:      []int32{int32(n)},
 		}, node.Cdr, nil
 	}
 
 	return &instruction.I32{
-		Instruction: i,
+		Instruction: iname,
 	}, node, nil
 }
 
 func parseParametricInstruction(sym string, node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
-	i := instruction.InstructionName(sym)
-	if !i.IsValid() {
+	iname := instruction.InstructionName(sym)
+	if !iname.IsParametric() {
 		return nil, nil, errUnsupportedInstruction
 	}
 
 	return &instruction.Parametric{
-		Instruction: i,
+		Instruction: iname,
 	}, node, nil
 }
 
 func parseControlInstruction(sym string, node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
-	i := instruction.InstructionName(sym)
-	if !i.IsValid() {
+	iname := instruction.InstructionName(sym)
+	if !iname.IsControl() {
 		return nil, nil, errUnsupportedInstruction
 	}
 
 	return &instruction.Control{
-		Instruction: i,
+		Instruction: iname,
 	}, node, nil
 }
 

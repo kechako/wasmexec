@@ -16,11 +16,29 @@ const (
 )
 
 func (name InstructionName) IsValid() bool {
+	return name.IsI32() || name.IsParametric() || name.IsControl()
+}
+
+func (name InstructionName) IsI32() bool {
 	switch name {
 	case I32Const, I32Add, I32Sub:
 		return true
+	}
+
+	return false
+}
+
+func (name InstructionName) IsParametric() bool {
+	switch name {
 	case Drop:
 		return true
+	}
+
+	return false
+}
+
+func (name InstructionName) IsControl() bool {
+	switch name {
 	case Return:
 		return true
 	}
