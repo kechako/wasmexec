@@ -19,8 +19,15 @@ WebAssembly のランタイムを実験的に実装していきます。
 go run ./cmd/wasmexec xxxxx.wat
 ----
 
-== TODO
+== 対応している命令
 
-* [x] S式パーサーの実装
-* [x] Text Format のデコーダー実装
-* [ ] Runtime の実装
+* `i32.const`
+* `i32.add`
+* `i32.sub`
+* `i32.mul`
+* `i32.div_s`
+* `local.get`
+* `local.set`
+* `local.tee`
+* `return`
+* `call`
