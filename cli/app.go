@@ -3,29 +3,57 @@ package cli
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 
 	"github.com/kechako/wasmexec/mod"
 	"github.com/kechako/wasmexec/mod/instruction"
 	"github.com/kechako/wasmexec/mod/text"
+	"github.com/kechako/wasmexec/runtime"
 )
 
 type App struct {
+	invoke string
+	input  string
 }
 
 func (app *App) Run(ctx context.Context) error {
-	args := os.Args[1:]
-	if len(args) == 0 {
-		return errors.New("invalid arguments")
+	if err := app.parseArgs(); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
 	}
 
-	m, err := app.decode(args[0])
+	m, err := app.decode(app.input)
 	if err != nil {
 		return err
 	}
 
-	dumpModule(m)
+	vm := runtime.New(m)
+	if err := vm.ExecFunc(ctx, app.invoke); err != nil {
+		return err
+	}
+	//dumpModule(m)
+
+	return nil
+}
+
+func (app *App) parseArgs() error {
+	f := flag.NewFlagSet("wasmexec", flag.ContinueOnError)
+	f.StringVar(&app.invoke, "invoke", "main", "the name of the function to run")
+
+	if err := f.Parse(os.Args[1:]); err != nil {
+		return err
+	}
+
+	args := f.Args()
+	if len(args) == 0 {
+		return errors.New("invalid arguments")
+	}
+
+	app.input = args[0]
 
 	return nil
 }
