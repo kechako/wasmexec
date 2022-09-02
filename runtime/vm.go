@@ -3,7 +3,6 @@ package runtime
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 
 	"github.com/kechako/wasmexec/mod"
@@ -69,39 +68,35 @@ var (
 	errUnsupportedType           = errors.New("unsupported type")
 )
 
-func (vm *VM) ExecFunc(ctx context.Context, name string) error {
+func (vm *VM) ExecFunc(ctx context.Context, name string) ([]any, error) {
 	// エクスポートを検索
 	e, ok := vm.exports[name]
 	if !ok {
-		return errExportNotFound
+		return nil, errExportNotFound
 	}
 
 	// エクスポートは関数？
 	if e.Target != mod.ExportFunction {
-		return errExportTargetNotFunction
+		return nil, errExportTargetNotFunction
 	}
 
 	// 関数を検索
 	f, ok := vm.funcs[makeIndexKey(e.Index)]
 	if !ok {
-		return errFunctionNotFound
+		return nil, errFunctionNotFound
 	}
 
 	err := vm.callFunc(ctx, f)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	results, err := vm.popFuncResults(f)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	for _, result := range results {
-		fmt.Println(result)
-	}
-
-	return err
+	return results, err
 }
 
 func (vm *VM) callFunc(ctx context.Context, f *mod.Function) error {

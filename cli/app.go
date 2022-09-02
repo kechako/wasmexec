@@ -32,8 +32,13 @@ func (app *App) Run(ctx context.Context) error {
 	}
 
 	vm := runtime.New(m)
-	if err := vm.ExecFunc(ctx, app.invoke); err != nil {
+	results, err := vm.ExecFunc(ctx, app.invoke)
+	if err != nil {
 		return err
+	}
+
+	for _, result := range results {
+		fmt.Println(result)
 	}
 	//dumpModule(m)
 
