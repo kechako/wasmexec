@@ -311,7 +311,7 @@ func parseI32Instruction(sym string, node *sexp.Node) (instruction.Instruction, 
 		return nil, nil, errUnsupportedInstruction
 	}
 
-	i := instruction.I32Instruction(sym)
+	i := instruction.InstructionName(sym)
 	if !i.IsValid() {
 		return nil, nil, errUnsupportedInstruction
 	}
@@ -334,7 +334,7 @@ func parseI32Instruction(sym string, node *sexp.Node) (instruction.Instruction, 
 }
 
 func parseParametricInstruction(sym string, node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
-	i := instruction.ParametricInstruction(sym)
+	i := instruction.InstructionName(sym)
 	if !i.IsValid() {
 		return nil, nil, errUnsupportedInstruction
 	}
@@ -345,7 +345,7 @@ func parseParametricInstruction(sym string, node *sexp.Node) (instruction.Instru
 }
 
 func parseControlInstruction(sym string, node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
-	i := instruction.ControlInstruction(sym)
+	i := instruction.InstructionName(sym)
 	if !i.IsValid() {
 		return nil, nil, errUnsupportedInstruction
 	}
