@@ -21,13 +21,28 @@ go run ./cmd/wasmexec xxxxx.wat
 
 == 対応している命令
 
+.Numeric Instructions
 * `i32.const`
 * `i32.add`
 * `i32.sub`
 * `i32.mul`
 * `i32.div_s`
+* `i32.eqz`
+* `i32.eq`
+* `i32.ne`
+* `i32.lt_s`
+* `i32.gt_s`
+* `i32.le_s`
+* `i32.ge_s`
+
+.Parametric Instructions
+* `drop`
+
+.Variable Instructions
 * `local.get`
 * `local.set`
 * `local.tee`
+
+.Control Instructions
 * `return`
 * `call`
