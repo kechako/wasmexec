@@ -315,7 +315,7 @@ func isPrimitive(r rune) bool {
 		return true
 	}
 
-	if strings.ContainsRune("!#$%&'*+,-.:<=>@[]^`{/}", r) {
+	if strings.ContainsRune("!#$%&'*+,-./:<=>?@[]^_`{/}", r) {
 		return true
 	}
 

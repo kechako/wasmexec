@@ -22,6 +22,10 @@ var tests = map[string]struct {
    i32.add
    i32.const 4
    i32.sub
+   i32.const 3
+   i32.mul
+   i32.const 7
+   i32.div_s
    return
      drop 
     i32.const 0
@@ -115,27 +119,69 @@ var tests = map[string]struct {
 															},
 															Cdr: &Node{
 																Type: NodeCell,
-																Car: &Node{ // return
+																Car: &Node{ // i32.const
 																	Type:  NodeSymbol,
-																	Value: "return",
+																	Value: "i32.const",
 																},
 																Cdr: &Node{
 																	Type: NodeCell,
-																	Car: &Node{ // drop
-																		Type:  NodeSymbol,
-																		Value: "drop",
+																	Car: &Node{ // 3
+																		Type:  NodeInt,
+																		Value: int64(3),
 																	},
 																	Cdr: &Node{
 																		Type: NodeCell,
-																		Car: &Node{ // i32.const
+																		Car: &Node{ // i32.mul
 																			Type:  NodeSymbol,
-																			Value: "i32.const",
+																			Value: "i32.mul",
 																		},
 																		Cdr: &Node{
 																			Type: NodeCell,
-																			Car: &Node{ // 0
-																				Type:  NodeInt,
-																				Value: int64(0),
+																			Car: &Node{ // i32.const
+																				Type:  NodeSymbol,
+																				Value: "i32.const",
+																			},
+																			Cdr: &Node{
+																				Type: NodeCell,
+																				Car: &Node{ // 7
+																					Type:  NodeInt,
+																					Value: int64(7),
+																				},
+																				Cdr: &Node{
+																					Type: NodeCell,
+																					Car: &Node{ // i32.div_s
+																						Type:  NodeSymbol,
+																						Value: "i32.div_s",
+																					},
+																					Cdr: &Node{
+																						Type: NodeCell,
+																						Car: &Node{ // return
+																							Type:  NodeSymbol,
+																							Value: "return",
+																						},
+																						Cdr: &Node{
+																							Type: NodeCell,
+																							Car: &Node{ // drop
+																								Type:  NodeSymbol,
+																								Value: "drop",
+																							},
+																							Cdr: &Node{
+																								Type: NodeCell,
+																								Car: &Node{ // i32.const
+																									Type:  NodeSymbol,
+																									Value: "i32.const",
+																								},
+																								Cdr: &Node{
+																									Type: NodeCell,
+																									Car: &Node{ // 0
+																										Type:  NodeInt,
+																										Value: int64(0),
+																									},
+																								},
+																							},
+																						},
+																					},
+																				},
 																			},
 																		},
 																	},
