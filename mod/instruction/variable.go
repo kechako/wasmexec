@@ -2,11 +2,11 @@ package instruction
 
 import "github.com/kechako/wasmexec/mod/types"
 
-type Variable struct {
+type VariableInstruction struct {
 	Instruction InstructionName
 	Index       types.Index
 }
 
-func (v *Variable) Name() InstructionName {
-	return v.Instruction
+func (i *VariableInstruction) Name() InstructionName {
+	return i.Instruction
 }

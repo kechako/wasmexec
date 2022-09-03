@@ -1,9 +1,9 @@
 package instruction
 
-type Parametric struct {
+type ParametricInstruction struct {
 	Instruction InstructionName
 }
 
-func (p *Parametric) Name() InstructionName {
-	return p.Instruction
+func (i *ParametricInstruction) Name() InstructionName {
+	return i.Instruction
 }

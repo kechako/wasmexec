@@ -369,13 +369,13 @@ func parseI32Instruction(sym string, node *sexp.Node) (instruction.Instruction, 
 		if !ok {
 			return nil, nil, errInvalidModuleFormat
 		}
-		return &instruction.I32{
+		return &instruction.I32Instruction{
 			Instruction: iname,
 			Values:      []int32{int32(n)},
 		}, node.Cdr, nil
 	}
 
-	return &instruction.I32{
+	return &instruction.I32Instruction{
 		Instruction: iname,
 	}, node, nil
 }
@@ -386,7 +386,7 @@ func parseParametricInstruction(sym string, node *sexp.Node) (instruction.Instru
 		return nil, nil, errUnsupportedInstruction
 	}
 
-	return &instruction.Parametric{
+	return &instruction.ParametricInstruction{
 		Instruction: iname,
 	}, node, nil
 }
@@ -401,7 +401,7 @@ func parseVariableInstruction(sym string, node *sexp.Node) (instruction.Instruct
 	if err != nil {
 		return nil, nil, err
 	}
-	return &instruction.Variable{
+	return &instruction.VariableInstruction{
 		Instruction: iname,
 		Index:       index,
 	}, node.Cdr, nil
@@ -418,13 +418,13 @@ func parseControlInstruction(sym string, node *sexp.Node) (instruction.Instructi
 		if err != nil {
 			return nil, nil, err
 		}
-		return &instruction.Control{
+		return &instruction.ControlInstruction{
 			Instruction: iname,
 			Values:      []any{index},
 		}, node.Cdr, nil
 	}
 
-	return &instruction.Control{
+	return &instruction.ControlInstruction{
 		Instruction: iname,
 	}, node, nil
 }

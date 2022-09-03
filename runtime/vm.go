@@ -124,7 +124,7 @@ loop:
 
 		switch i.Name() {
 		case instruction.I32Const:
-			i := i.(*instruction.I32)
+			i := i.(*instruction.I32Instruction)
 			vm.stack.Push(newValueElement(i.Values[0]))
 		case instruction.I32Add:
 			c2, ok := vm.stack.Pop().Int32()
@@ -269,20 +269,20 @@ loop:
 				return errStackInconsistent
 			}
 		case instruction.LocalGet:
-			i := i.(*instruction.Variable)
+			i := i.(*instruction.VariableInstruction)
 			v, err := funcCtx.GetLocalInt32(i.Index)
 			if err != nil {
 				return err
 			}
 			vm.stack.Push(newValueElement(v))
 		case instruction.LocalSet:
-			i := i.(*instruction.Variable)
+			i := i.(*instruction.VariableInstruction)
 			err := execLocalSet(vm, funcCtx, i.Index)
 			if err != nil {
 				return err
 			}
 		case instruction.LocalTee:
-			i := i.(*instruction.Variable)
+			i := i.(*instruction.VariableInstruction)
 			elm := vm.stack.Pop()
 			if elm.Type != ValueElement {
 				return errStackInconsistent
@@ -304,7 +304,7 @@ loop:
 				break loop
 			}
 		case instruction.Call:
-			i := i.(*instruction.Control)
+			i := i.(*instruction.ControlInstruction)
 			index := i.Values[0].(types.Index)
 			key := makeIndexKey(index)
 			f, ok := vm.funcs[key]

@@ -128,18 +128,18 @@ func dumpResult(r *mod.Result, index int, indent string) {
 
 func dumpInstruction(i instruction.Instruction, indent string) {
 	switch v := i.(type) {
-	case *instruction.I32:
+	case *instruction.I32Instruction:
 		dumpI32Instruction(v, indent)
-	case *instruction.Parametric:
+	case *instruction.ParametricInstruction:
 		dumpParametricInstruction(v, indent)
-	case *instruction.Control:
+	case *instruction.ControlInstruction:
 		dumpControlInstruction(v, indent)
 	default:
 		fmt.Printf("%s(unknown)\n", indent)
 	}
 }
 
-func dumpI32Instruction(i *instruction.I32, indent string) {
+func dumpI32Instruction(i *instruction.I32Instruction, indent string) {
 	fmt.Printf("%s%s", indent, i.Instruction)
 	for _, v := range i.Values {
 		fmt.Printf(" %d", v)
@@ -147,10 +147,10 @@ func dumpI32Instruction(i *instruction.I32, indent string) {
 	fmt.Println()
 }
 
-func dumpParametricInstruction(i *instruction.Parametric, indent string) {
+func dumpParametricInstruction(i *instruction.ParametricInstruction, indent string) {
 	fmt.Printf("%s%s\n", indent, i.Instruction)
 }
 
-func dumpControlInstruction(i *instruction.Control, indent string) {
+func dumpControlInstruction(i *instruction.ControlInstruction, indent string) {
 	fmt.Printf("%s%s\n", indent, i.Instruction)
 }

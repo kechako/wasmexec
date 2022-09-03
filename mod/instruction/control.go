@@ -1,10 +1,10 @@
 package instruction
 
-type Control struct {
+type ControlInstruction struct {
 	Instruction InstructionName
 	Values      []any
 }
 
-func (c *Control) Name() InstructionName {
-	return c.Instruction
+func (i *ControlInstruction) Name() InstructionName {
+	return i.Instruction
 }
