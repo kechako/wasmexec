@@ -143,20 +143,6 @@ func parseFunction(node *sexp.Node) (*mod.Function, error) {
 		curr = curr.Cdr
 	}
 
-	// parse locals
-	for curr != nil && isFunctionLocal(curr.Car) {
-		car := curr.Car
-
-		l, err := parseLocal(car.Cdr)
-		if err != nil {
-			return nil, err
-		}
-
-		f.Locals = append(f.Locals, l)
-
-		curr = curr.Cdr
-	}
-
 	// parse results
 	for curr != nil && isFunctionResult(curr.Car) {
 		car := curr.Car
@@ -167,6 +153,20 @@ func parseFunction(node *sexp.Node) (*mod.Function, error) {
 		}
 
 		f.Results = append(f.Results, r)
+
+		curr = curr.Cdr
+	}
+
+	// parse locals
+	for curr != nil && isFunctionLocal(curr.Car) {
+		car := curr.Car
+
+		l, err := parseLocal(car.Cdr)
+		if err != nil {
+			return nil, err
+		}
+
+		f.Locals = append(f.Locals, l)
 
 		curr = curr.Cdr
 	}

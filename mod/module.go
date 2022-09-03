@@ -14,8 +14,8 @@ type Module struct {
 type Function struct {
 	ID           types.ID
 	Parameters   []*Local
-	Locals       []*Local
 	Results      []*Result
+	Locals       []*Local
 	Instructions []instruction.Instruction
 }
 

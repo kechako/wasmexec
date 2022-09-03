@@ -19,8 +19,8 @@ var tests = map[string]struct {
 		input: `(module $testmod
   (func $main
   	(param $a i32) (param $b i64)
-	(local $c i32) (local $d i64)
     (result i32)
+	(local $c i32) (local $d i64)
    i32.const 5
    i32.const 20
    i32.add
@@ -45,12 +45,12 @@ var tests = map[string]struct {
 						{ID: "$a", Type: types.I32},
 						{ID: "$b", Type: types.I64},
 					},
+					Results: []*mod.Result{
+						{Type: types.I32},
+					},
 					Locals: []*mod.Local{
 						{ID: "$c", Type: types.I32},
 						{ID: "$d", Type: types.I64},
-					},
-					Results: []*mod.Result{
-						{Type: types.I32},
 					},
 					Instructions: []instruction.Instruction{
 						&instruction.I32Instruction{Instruction: instruction.I32Const, Values: []int32{5}},
