@@ -418,9 +418,9 @@ func parseControlInstruction(sym string, node *sexp.Node) (instruction.Instructi
 		if err != nil {
 			return nil, nil, err
 		}
-		return &instruction.ControlInstruction{
+		return &instruction.CallInstruction{
 			Instruction: iname,
-			Values:      []any{index},
+			Index:       index,
 		}, node.Cdr, nil
 	}
 

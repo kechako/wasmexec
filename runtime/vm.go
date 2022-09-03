@@ -304,8 +304,8 @@ loop:
 				break loop
 			}
 		case instruction.Call:
-			i := i.(*instruction.ControlInstruction)
-			index := i.Values[0].(types.Index)
+			i := i.(*instruction.CallInstruction)
+			index := i.Index
 			key := makeIndexKey(index)
 			f, ok := vm.funcs[key]
 			if !ok {
