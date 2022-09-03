@@ -16,6 +16,7 @@ type Function struct {
 	Parameters   []*Local
 	Results      []*Result
 	Locals       []*Local
+	Blocks       []*Block
 	Instructions []instruction.Instruction
 }
 
@@ -26,6 +27,15 @@ type Local struct {
 
 type Result struct {
 	Type types.Type
+}
+
+type BlockResult Result
+
+type Block struct {
+	Label        types.ID
+	Parameters   []*Local
+	Results      []*Result
+	Instructions []instruction.Instruction
 }
 
 type ExportTarget string

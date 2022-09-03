@@ -22,10 +22,10 @@ func newValueElement(v any) *Element {
 	}
 }
 
-func newActivationElement(funcCtx *FuncContext) *Element {
+func newActivationElement(ctx VMContext) *Element {
 	return &Element{
 		Type:  ActivationElement,
-		Value: NewValue(funcCtx),
+		Value: NewValue(ctx),
 	}
 }
 
@@ -33,8 +33,8 @@ func (elm *Element) Int32() (int32, bool) {
 	return getElementValue[int32](elm, ValueElement)
 }
 
-func (elm *Element) FuncContext() (*FuncContext, bool) {
-	return getElementValue[*FuncContext](elm, ActivationElement)
+func (elm *Element) VMContext() (VMContext, bool) {
+	return getElementValue[VMContext](elm, ActivationElement)
 }
 
 func getElementValue[T any](elm *Element, typ ElementType) (value T, ok bool) {

@@ -30,6 +30,21 @@ var tests = map[string]struct {
    i32.mul
    i32.const 7
    i32.div_s
+
+   (block $block1
+   	      (param i32)
+		  (result i32)
+		  local.set $c
+		  i32.const 100
+		  i32.const 200
+		  i32.add
+		  local.get $c
+		  i32.mul
+		  (block $block2
+		         i32.const 10
+				 i32.div_s
+		  		 )
+		  )
    return
      drop 
     i32.const 0
@@ -52,6 +67,33 @@ var tests = map[string]struct {
 						{ID: "$c", Type: types.I32},
 						{ID: "$d", Type: types.I64},
 					},
+					Blocks: []*mod.Block{
+						{
+							Label: "$block2",
+							Instructions: []instruction.Instruction{
+								&instruction.I32Instruction{Instruction: instruction.I32Const, Values: []int32{10}},
+								&instruction.I32Instruction{Instruction: instruction.I32DivS},
+							},
+						},
+						{
+							Label: "$block1",
+							Parameters: []*mod.Local{
+								{Type: types.I32},
+							},
+							Results: []*mod.Result{
+								{Type: types.I32},
+							},
+							Instructions: []instruction.Instruction{
+								&instruction.VariableInstruction{Instruction: instruction.LocalSet, Index: types.Index{ID: "$c"}},
+								&instruction.I32Instruction{Instruction: instruction.I32Const, Values: []int32{100}},
+								&instruction.I32Instruction{Instruction: instruction.I32Const, Values: []int32{200}},
+								&instruction.I32Instruction{Instruction: instruction.I32Add},
+								&instruction.VariableInstruction{Instruction: instruction.LocalGet, Index: types.Index{ID: "$c"}},
+								&instruction.I32Instruction{Instruction: instruction.I32Mul},
+								&instruction.BlockInstruction{Instruction: instruction.Block, Label: "$block2"},
+							},
+						},
+					},
 					Instructions: []instruction.Instruction{
 						&instruction.I32Instruction{Instruction: instruction.I32Const, Values: []int32{5}},
 						&instruction.I32Instruction{Instruction: instruction.I32Const, Values: []int32{20}},
@@ -62,6 +104,7 @@ var tests = map[string]struct {
 						&instruction.I32Instruction{Instruction: instruction.I32Mul},
 						&instruction.I32Instruction{Instruction: instruction.I32Const, Values: []int32{7}},
 						&instruction.I32Instruction{Instruction: instruction.I32DivS},
+						&instruction.BlockInstruction{Instruction: instruction.Block, Label: "$block1"},
 						&instruction.ControlInstruction{Instruction: instruction.Return},
 						&instruction.ParametricInstruction{Instruction: instruction.Drop},
 						&instruction.I32Instruction{Instruction: instruction.I32Const, Values: []int32{0}},

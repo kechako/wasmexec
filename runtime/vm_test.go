@@ -46,6 +46,12 @@ var execFuncTests = map[string]struct {
 	"test05.wat": {
 		results: newTypedResults[int32](300),
 	},
+	"test06.wat": {
+		results: newTypedResults[int32](180),
+	},
+	"test07.wat": {
+		results: newTypedResults[int32](180),
+	},
 }
 
 func Test_VM_ExecFunc(t *testing.T) {

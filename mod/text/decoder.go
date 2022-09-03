@@ -86,7 +86,8 @@ func parseModuleField(m *mod.Module, node *sexp.Node) error {
 
 	switch sym {
 	case "func":
-		f, err := parseFunction(node.Cdr)
+		p := &functionParser{}
+		f, err := p.Parse(node.Cdr)
 		if err != nil {
 			return err
 		}
@@ -104,7 +105,11 @@ func parseModuleField(m *mod.Module, node *sexp.Node) error {
 	return nil
 }
 
-func parseFunction(node *sexp.Node) (*mod.Function, error) {
+type functionParser struct {
+	f *mod.Function
+}
+
+func (p *functionParser) Parse(node *sexp.Node) (*mod.Function, error) {
 	if node == nil {
 		return nil, errInvalidModuleFormat
 	}
@@ -126,6 +131,7 @@ func parseFunction(node *sexp.Node) (*mod.Function, error) {
 	f := &mod.Function{
 		ID: id,
 	}
+	p.f = f
 
 	curr := node
 
@@ -133,7 +139,7 @@ func parseFunction(node *sexp.Node) (*mod.Function, error) {
 	for curr != nil && isFunctionParam(curr.Car) {
 		car := curr.Car
 
-		p, err := parseLocal(car.Cdr)
+		p, err := p.parseLocal(car.Cdr)
 		if err != nil {
 			return nil, err
 		}
@@ -147,7 +153,7 @@ func parseFunction(node *sexp.Node) (*mod.Function, error) {
 	for curr != nil && isFunctionResult(curr.Car) {
 		car := curr.Car
 
-		r, err := parseResult(car.Cdr)
+		r, err := p.parseResult(car.Cdr)
 		if err != nil {
 			return nil, err
 		}
@@ -161,7 +167,7 @@ func parseFunction(node *sexp.Node) (*mod.Function, error) {
 	for curr != nil && isFunctionLocal(curr.Car) {
 		car := curr.Car
 
-		l, err := parseLocal(car.Cdr)
+		l, err := p.parseLocal(car.Cdr)
 		if err != nil {
 			return nil, err
 		}
@@ -171,7 +177,7 @@ func parseFunction(node *sexp.Node) (*mod.Function, error) {
 		curr = curr.Cdr
 	}
 
-	instructions, err := parseInstructions(curr)
+	instructions, err := p.parseInstructions(curr)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +225,7 @@ func isFunctionResult(node *sexp.Node) bool {
 	return sym == "result"
 }
 
-func parseLocal(node *sexp.Node) (*mod.Local, error) {
+func (p *functionParser) parseLocal(node *sexp.Node) (*mod.Local, error) {
 	if node == nil {
 		return nil, errInvalidModuleFormat
 	}
@@ -272,7 +278,7 @@ func parseType(s string) types.Type {
 	return types.Unkown
 }
 
-func parseResult(node *sexp.Node) (*mod.Result, error) {
+func (p *functionParser) parseResult(node *sexp.Node) (*mod.Result, error) {
 	if node == nil {
 		return nil, errInvalidModuleFormat
 	}
@@ -293,12 +299,12 @@ func parseResult(node *sexp.Node) (*mod.Result, error) {
 	}, nil
 }
 
-func parseInstructions(node *sexp.Node) ([]instruction.Instruction, error) {
+func (p *functionParser) parseInstructions(node *sexp.Node) ([]instruction.Instruction, error) {
 	var instructions []instruction.Instruction
 
 	curr := node
 	for curr != nil {
-		i, next, err := parseInstruction(curr)
+		i, next, err := p.parseInstruction(curr)
 		if err != nil {
 			return nil, err
 		}
@@ -312,53 +318,73 @@ func parseInstructions(node *sexp.Node) ([]instruction.Instruction, error) {
 
 var errUnsupportedInstruction = errors.New("unsupported instruction")
 
-func parseInstruction(node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
+func (p *functionParser) parseInstruction(node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
 	if node == nil {
 		return nil, nil, errInvalidModuleFormat
 	}
 
-	v, ok := node.Car.SymbolValue()
-	if !ok {
-		return nil, nil, errInvalidModuleFormat
-	}
+	if node.Car.Type == sexp.NodeCell {
+		i, err := p.parseNestedInstruction(node.Car)
+		if err != nil {
+			return nil, nil, err
+		}
+		return i, node.Cdr, nil
+	} else {
+		iname, err := getInstructionName(node)
+		if err != nil {
+			return nil, nil, err
+		}
 
-	i, next, err := parseI32Instruction(v, node.Cdr)
-	if err == nil {
-		return i, next, nil
-	}
-	if err != nil && err != errUnsupportedInstruction {
-		return nil, nil, err
-	}
+		i, next, err := p.parseI32Instruction(iname, node.Cdr)
+		if err == nil {
+			return i, next, nil
+		}
+		if err != nil && err != errUnsupportedInstruction {
+			return nil, nil, err
+		}
 
-	i, next, err = parseParametricInstruction(v, node.Cdr)
-	if err == nil {
-		return i, next, nil
-	}
-	if err != nil && err != errUnsupportedInstruction {
-		return nil, nil, err
-	}
+		i, next, err = p.parseParametricInstruction(iname, node.Cdr)
+		if err == nil {
+			return i, next, nil
+		}
+		if err != nil && err != errUnsupportedInstruction {
+			return nil, nil, err
+		}
 
-	i, next, err = parseVariableInstruction(v, node.Cdr)
-	if err == nil {
-		return i, next, nil
-	}
-	if err != nil && err != errUnsupportedInstruction {
-		return nil, nil, err
-	}
+		i, next, err = p.parseVariableInstruction(iname, node.Cdr)
+		if err == nil {
+			return i, next, nil
+		}
+		if err != nil && err != errUnsupportedInstruction {
+			return nil, nil, err
+		}
 
-	i, next, err = parseControlInstruction(v, node.Cdr)
-	if err == nil {
-		return i, next, nil
-	}
-	if err != nil && err != errUnsupportedInstruction {
-		return nil, nil, err
+		i, next, err = p.parseControlInstruction(iname, node.Cdr)
+		if err == nil {
+			return i, next, nil
+		}
+		if err != nil && err != errUnsupportedInstruction {
+			return nil, nil, err
+		}
 	}
 
 	return nil, nil, errUnsupportedInstruction
 }
 
-func parseI32Instruction(sym string, node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
-	iname := instruction.InstructionName(sym)
+func getInstructionName(node *sexp.Node) (instruction.InstructionName, error) {
+	if node == nil {
+		return "", errInvalidModuleFormat
+	}
+
+	v, ok := node.Car.SymbolValue()
+	if !ok {
+		return "", errInvalidModuleFormat
+	}
+
+	return instruction.InstructionName(v), nil
+}
+
+func (p *functionParser) parseI32Instruction(iname instruction.InstructionName, node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
 	if !iname.IsI32() {
 		return nil, nil, errUnsupportedInstruction
 	}
@@ -380,8 +406,7 @@ func parseI32Instruction(sym string, node *sexp.Node) (instruction.Instruction, 
 	}, node, nil
 }
 
-func parseParametricInstruction(sym string, node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
-	iname := instruction.InstructionName(sym)
+func (p *functionParser) parseParametricInstruction(iname instruction.InstructionName, node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
 	if !iname.IsParametric() {
 		return nil, nil, errUnsupportedInstruction
 	}
@@ -391,8 +416,7 @@ func parseParametricInstruction(sym string, node *sexp.Node) (instruction.Instru
 	}, node, nil
 }
 
-func parseVariableInstruction(sym string, node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
-	iname := instruction.InstructionName(sym)
+func (p *functionParser) parseVariableInstruction(iname instruction.InstructionName, node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
 	if !iname.IsVariable() {
 		return nil, nil, errUnsupportedInstruction
 	}
@@ -407,13 +431,14 @@ func parseVariableInstruction(sym string, node *sexp.Node) (instruction.Instruct
 	}, node.Cdr, nil
 }
 
-func parseControlInstruction(sym string, node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
-	iname := instruction.InstructionName(sym)
+func (p *functionParser) parseControlInstruction(iname instruction.InstructionName, node *sexp.Node) (instruction.Instruction, *sexp.Node, error) {
 	if !iname.IsControl() {
 		return nil, nil, errUnsupportedInstruction
 	}
 
-	if iname == instruction.Call {
+	switch iname {
+	case instruction.Block:
+	case instruction.Call:
 		index, err := parseIndex(node)
 		if err != nil {
 			return nil, nil, err
@@ -427,6 +452,129 @@ func parseControlInstruction(sym string, node *sexp.Node) (instruction.Instructi
 	return &instruction.ControlInstruction{
 		Instruction: iname,
 	}, node, nil
+}
+
+func (p *functionParser) parseNestedInstruction(node *sexp.Node) (instruction.Instruction, error) {
+	iname, err := getInstructionName(node)
+	if err != nil {
+		return nil, err
+	}
+
+	switch iname {
+	case instruction.Block:
+		return p.parseBlockInstruction(node.Cdr)
+	}
+
+	return nil, errUnsupportedInstruction
+}
+
+func (p *functionParser) parseBlockInstruction(node *sexp.Node) (instruction.Instruction, error) {
+	if node == nil {
+		return nil, errInvalidModuleFormat
+	}
+
+	// label
+	var label types.ID
+	if v, ok := node.Car.SymbolValue(); ok {
+		label = types.ID(v)
+		if !label.IsValid() {
+			return nil, errInvalidModuleFormat
+		}
+
+		node = node.Cdr
+		if node == nil {
+			return nil, errInvalidModuleFormat
+		}
+	}
+
+	block := &mod.Block{
+		Label: label,
+	}
+
+	curr := node
+
+	// parse params
+	for curr != nil && isFunctionParam(curr.Car) {
+		car := curr.Car
+
+		p, err := p.parseBlockParam(car.Cdr)
+		if err != nil {
+			return nil, err
+		}
+
+		block.Parameters = append(block.Parameters, p)
+
+		curr = curr.Cdr
+	}
+
+	// parse results
+	for curr != nil && isFunctionResult(curr.Car) {
+		car := curr.Car
+
+		r, err := p.parseBlockResult(car.Cdr)
+		if err != nil {
+			return nil, err
+		}
+
+		block.Results = append(block.Results, r)
+
+		curr = curr.Cdr
+	}
+
+	instructions, err := p.parseInstructions(curr)
+	if err != nil {
+		return nil, err
+	}
+	block.Instructions = instructions
+
+	p.f.Blocks = append(p.f.Blocks, block)
+
+	return &instruction.BlockInstruction{
+		Instruction: instruction.Block,
+		Label:       label,
+	}, nil
+}
+
+func (p *functionParser) parseBlockParam(node *sexp.Node) (*mod.Local, error) {
+	if node == nil {
+		return nil, errInvalidModuleFormat
+	}
+
+	// type
+	v, ok := node.Car.SymbolValue()
+	if !ok {
+		return nil, errInvalidModuleFormat
+	}
+
+	typ := parseType(v)
+	if typ == types.Unkown {
+		return nil, errInvalidModuleFormat
+	}
+
+	return &mod.Local{
+		Type: typ,
+	}, nil
+}
+
+func (p *functionParser) parseBlockResult(node *sexp.Node) (*mod.Result, error) {
+	if node == nil {
+		return nil, errInvalidModuleFormat
+	}
+
+	// type
+	v, ok := node.Car.SymbolValue()
+	if !ok {
+		return nil, errInvalidModuleFormat
+	}
+
+	typ := parseType(v)
+	if typ == types.Unkown {
+		return nil, errInvalidModuleFormat
+	}
+
+	return &mod.Result{
+		Type: typ,
+	}, nil
 }
 
 func parseExport(node *sexp.Node) (*mod.Export, error) {

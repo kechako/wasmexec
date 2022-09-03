@@ -26,6 +26,7 @@ const (
 	LocalTee InstructionName = "local.tee"
 
 	// ControlInstruction
+	Block  InstructionName = "block"
 	Return InstructionName = "return"
 	Call   InstructionName = "call"
 )
@@ -64,7 +65,7 @@ func (name InstructionName) IsVariable() bool {
 
 func (name InstructionName) IsControl() bool {
 	switch name {
-	case Return, Call:
+	case Block, Return, Call:
 		return true
 	}
 

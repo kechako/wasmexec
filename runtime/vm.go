@@ -10,6 +10,17 @@ import (
 	"github.com/kechako/wasmexec/mod/types"
 )
 
+var (
+	errExportNotFound            = errors.New("export is not found")
+	errExportTargetNotFunction   = errors.New("export target is not a function")
+	errFunctionNotFound          = errors.New("function is not found")
+	errBlockNotFound             = errors.New("block is not found")
+	errStackInconsistent         = errors.New("stack is inconsistent")
+	errLocalVariableInconsistent = errors.New("local variables are inconsistent")
+	errIntegerDivideByZero       = errors.New("integer divide by zero")
+	errUnsupportedType           = errors.New("unsupported type")
+)
+
 type VM struct {
 	mod   *mod.Module
 	stack *Stack
@@ -44,10 +55,10 @@ func (vm *VM) init() {
 
 func (vm *VM) makeFuncTable() {
 	for i, f := range vm.mod.Functions {
-		idx := strconv.Itoa(i)
-		vm.funcs[idx] = f
-		if !f.ID.IsEmpty() {
-			vm.funcs[string(f.ID)] = f
+		idxKey, idKey := makeIndexKeys(i, f.ID)
+		vm.funcs[idxKey] = f
+		if idKey != "" {
+			vm.funcs[idKey] = f
 		}
 	}
 }
@@ -57,16 +68,6 @@ func (vm *VM) makeExportTable() {
 		vm.exports[e.Name] = e
 	}
 }
-
-var (
-	errExportNotFound            = errors.New("export is not found")
-	errExportTargetNotFunction   = errors.New("export target is not a function")
-	errFunctionNotFound          = errors.New("function is not found")
-	errStackInconsistent         = errors.New("stack is inconsistent")
-	errLocalVariableInconsistent = errors.New("local variables are inconsistent")
-	errIntegerDivideByZero       = errors.New("integer divide by zero")
-	errUnsupportedType           = errors.New("unsupported type")
-)
 
 func (vm *VM) ExecFunc(ctx context.Context, name string) ([]any, error) {
 	// エクスポートを検索
@@ -91,7 +92,7 @@ func (vm *VM) ExecFunc(ctx context.Context, name string) ([]any, error) {
 		return nil, err
 	}
 
-	results, err := vm.popFuncResults(f)
+	results, err := vm.popContextResults(f.Results)
 	if err != nil {
 		return nil, err
 	}
@@ -100,22 +101,22 @@ func (vm *VM) ExecFunc(ctx context.Context, name string) ([]any, error) {
 }
 
 func (vm *VM) callFunc(ctx context.Context, f *mod.Function) error {
-	funcCtx, err := vm.initFunction(f, nil)
+	vmCtx, err := vm.initFunction(f, nil)
 	if err != nil {
 		return err
 	}
 
 loop:
 	for {
-		i := funcCtx.GetInstruction()
+		i := vmCtx.GetInstruction()
 		if i == nil {
 			var err error
-			funcCtx, err = vm.finalizeFunction(funcCtx.f)
+			vmCtx, err = vm.finalizeContext(vmCtx)
 			if err != nil {
 				return err
 			}
 
-			if funcCtx == nil {
+			if vmCtx == nil {
 				break loop
 			}
 
@@ -270,14 +271,18 @@ loop:
 			}
 		case instruction.LocalGet:
 			i := i.(*instruction.VariableInstruction)
-			v, err := funcCtx.GetLocalInt32(i.Index)
+			v, err := vmCtx.GetLocal(i.Index)
 			if err != nil {
 				return err
 			}
-			vm.stack.Push(newValueElement(v))
+			n, ok := v.Int32()
+			if !ok {
+				return errLocalVariableInconsistent
+			}
+			vm.stack.Push(newValueElement(n))
 		case instruction.LocalSet:
 			i := i.(*instruction.VariableInstruction)
-			err := execLocalSet(vm, funcCtx, i.Index)
+			err := execLocalSet(vm, vmCtx, i.Index)
 			if err != nil {
 				return err
 			}
@@ -290,17 +295,24 @@ loop:
 			vm.stack.Push(newValueElement(elm.Value.Value))
 			vm.stack.Push(newValueElement(elm.Value.Value))
 
-			err := execLocalSet(vm, funcCtx, i.Index)
+			err := execLocalSet(vm, vmCtx, i.Index)
+			if err != nil {
+				return err
+			}
+		case instruction.Block:
+			i := i.(*instruction.BlockInstruction)
+			var err error
+			vmCtx, err = vm.initBlock(i.Label, vmCtx)
 			if err != nil {
 				return err
 			}
 		case instruction.Return:
 			var err error
-			funcCtx, err = vm.finalizeFunction(funcCtx.f)
+			vmCtx, err = vm.finalizeContext(vmCtx)
 			if err != nil {
 				return err
 			}
-			if funcCtx == nil {
+			if vmCtx == nil {
 				break loop
 			}
 		case instruction.Call:
@@ -313,7 +325,7 @@ loop:
 			}
 
 			var err error
-			funcCtx, err = vm.initFunction(f, funcCtx)
+			vmCtx, err = vm.initFunction(f, vmCtx)
 			if err != nil {
 				return err
 			}
@@ -323,7 +335,7 @@ loop:
 	return nil
 }
 
-func (vm *VM) initFunction(f *mod.Function, original *FuncContext) (*FuncContext, error) {
+func (vm *VM) initFunction(f *mod.Function, original VMContext) (VMContext, error) {
 	var locals []Local
 
 	// parameters
@@ -362,23 +374,66 @@ func (vm *VM) initFunction(f *mod.Function, original *FuncContext) (*FuncContext
 		})
 	}
 
-	funcCtx := newFuncContext(f, locals, original)
+	var vmCtx VMContext
+	if original == nil {
+		vmCtx = newFuncContext(f, locals, nil)
+	} else {
+		vmCtx = original.NewFuncContext(f, locals)
+	}
 
-	vm.stack.Push(newActivationElement(funcCtx))
+	vm.stack.Push(newActivationElement(vmCtx))
 
-	return funcCtx, nil
+	return vmCtx, nil
 }
 
-func (vm *VM) finalizeFunction(f *mod.Function) (*FuncContext, error) {
+func (vm *VM) initBlock(label types.ID, original VMContext) (VMContext, error) {
+	vmCtx, err := original.NewBlockContext(label)
+	if err != nil {
+		return nil, err
+	}
 
-	results, err := vm.popFuncResults(f)
+	parameters := vmCtx.Parameters()
+
+	// parameters
+	paramLen := len(parameters)
+	values := make([]any, paramLen)
+	for i := 0; i < paramLen; i++ {
+		paramIdx := paramLen - i - 1
+		p := parameters[paramIdx]
+		switch p.Type {
+		case types.I32:
+			v, ok := vm.stack.Pop().Int32()
+			if !ok {
+				return nil, errStackInconsistent
+			}
+			values[i] = v
+		default:
+			return nil, errUnsupportedType
+		}
+	}
+
+	vm.stack.Push(newActivationElement(vmCtx))
+
+	for i := 0; i < paramLen; i++ {
+		valueIdx := paramLen - i - 1
+		vm.stack.Push(newValueElement(values[valueIdx]))
+	}
+
+	return vmCtx, nil
+}
+
+func (vm *VM) finalizeContext(vmCtx VMContext) (VMContext, error) {
+	results, err := vm.popContextResults(vmCtx.Results())
 	if err != nil {
 		return nil, err
 	}
 
 	// pop func context
-	funcCtx, ok := vm.stack.Pop().FuncContext()
+	popedCtx, ok := vm.stack.Pop().VMContext()
 	if !ok {
+		return nil, errStackInconsistent
+	}
+	if popedCtx != vmCtx {
 		return nil, errStackInconsistent
 	}
 
@@ -386,12 +441,12 @@ func (vm *VM) finalizeFunction(f *mod.Function) (*FuncContext, error) {
 		vm.stack.Push(newValueElement(result))
 	}
 
-	return funcCtx.original, nil
+	return vmCtx.Original(), nil
 }
 
-func (vm *VM) popFuncResults(f *mod.Function) ([]any, error) {
-	var results []any
-	for _, r := range f.Results {
+func (vm *VM) popContextResults(results []*mod.Result) ([]any, error) {
+	var values []any
+	for _, r := range results {
 		// pop result
 		elm := vm.stack.Pop()
 		if elm.Type != ValueElement {
@@ -417,21 +472,23 @@ func (vm *VM) popFuncResults(f *mod.Function) ([]any, error) {
 			if r.Type != types.F64 {
 				return nil, errStackInconsistent
 			}
+		default:
+			return nil, errStackInconsistent
 		}
 
-		results = append(results, result)
+		values = append(values, result)
 	}
 
-	return results, nil
+	return values, nil
 }
 
-func execLocalSet(vm *VM, funcCtx *FuncContext, index types.Index) error {
+func execLocalSet(vm *VM, vmCtx VMContext, index types.Index) error {
 	elm := vm.stack.Pop()
 	if elm.Type != ValueElement {
 		return errStackInconsistent
 	}
 
-	return funcCtx.SetLocal(index, elm.Value.Value)
+	return vmCtx.SetLocal(index, elm.Value)
 }
 
 func makeIndexKey(idx types.Index) string {
@@ -440,6 +497,14 @@ func makeIndexKey(idx types.Index) string {
 	}
 
 	return string(idx.ID)
+}
+
+func makeIndexKeys(index int, id types.ID) (string, string) {
+	idxKey := strconv.Itoa(index)
+	if id.IsEmpty() {
+		return idxKey, ""
+	}
+	return idxKey, string(id)
 }
 
 type vmOptions struct {

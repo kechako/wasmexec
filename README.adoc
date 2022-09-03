@@ -44,5 +44,6 @@ go run ./cmd/wasmexec xxxxx.wat
 * `local.tee`
 
 .Control Instructions
+* `block`
 * `return`
 * `call`

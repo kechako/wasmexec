@@ -18,3 +18,12 @@ type CallInstruction struct {
 func (i *CallInstruction) Name() InstructionName {
 	return i.Instruction
 }
+
+type BlockInstruction struct {
+	Instruction InstructionName
+	Label       types.ID
+}
+
+func (i *BlockInstruction) Name() InstructionName {
+	return i.Instruction
+}

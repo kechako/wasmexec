@@ -6,34 +6,68 @@ import (
 	"github.com/kechako/wasmexec/mod/types"
 )
 
-type Local struct {
-	Index types.Index
-	Value Value
-}
-
 type FuncContext struct {
 	// 関数
 	f *mod.Function
 	// 実行中の命令位置
-	pos    int
-	locals map[string]Value
+	pos       int
+	locals    map[int]Value
+	idToIndex map[types.ID]int
+	blocks    map[types.ID]*mod.Block
 
-	original *FuncContext
+	original VMContext
 }
 
-func newFuncContext(f *mod.Function, locals []Local, original *FuncContext) *FuncContext {
-	localMap := make(map[string]Value)
-	for _, l := range locals {
-		key := makeIndexKey(l.Index)
-		localMap[key] = l.Value
+var _ VMContext = (*FuncContext)(nil)
+
+func newFuncContext(f *mod.Function, locals []Local, original VMContext) VMContext {
+	localMap := make(map[int]Value)
+	idToIndex := make(map[types.ID]int)
+	for i, l := range locals {
+		localMap[i] = l.Value
+		if l.Index.IsID() {
+			idToIndex[l.Index.ID] = i
+		}
+	}
+
+	blockMap := make(map[types.ID]*mod.Block)
+	for _, block := range f.Blocks {
+		blockMap[block.Label] = block
 	}
 
 	return &FuncContext{
-		f:        f,
-		pos:      0,
-		locals:   localMap,
-		original: original,
+		f:         f,
+		pos:       0,
+		locals:    localMap,
+		idToIndex: idToIndex,
+		blocks:    blockMap,
+		original:  original,
 	}
+}
+
+func (funcCtx *FuncContext) NewFuncContext(f *mod.Function, locals []Local) VMContext {
+	return newFuncContext(f, locals, funcCtx)
+}
+
+func (funcCtx *FuncContext) NewBlockContext(label types.ID) (VMContext, error) {
+	return newBlockContext(label, funcCtx)
+}
+
+func (funcCtx *FuncContext) Results() []*mod.Result {
+	return funcCtx.f.Results
+}
+
+func (funcCtx *FuncContext) Parameters() []*mod.Local {
+	return funcCtx.f.Parameters
+}
+
+func (funcCtx *FuncContext) Original() VMContext {
+	return funcCtx.original
+}
+
+func (funcCtx *FuncContext) GetBlock(label types.ID) (*mod.Block, bool) {
+	block, ok := funcCtx.blocks[label]
+	return block, ok
 }
 
 func (funcCtx *FuncContext) GetInstruction() instruction.Instruction {
@@ -46,28 +80,40 @@ func (funcCtx *FuncContext) GetInstruction() instruction.Instruction {
 	return i
 }
 
-func (funcCtx *FuncContext) SetLocal(idx types.Index, value any) error {
-	key := makeIndexKey(idx)
-	if _, ok := funcCtx.locals[key]; !ok {
-		return errLocalVariableInconsistent
+func (funcCtx *FuncContext) SetLocal(idx types.Index, value Value) error {
+	index, err := funcCtx.getIndex(idx)
+	if err != nil {
+		return err
 	}
 
-	funcCtx.locals[key] = NewValue(value)
+	funcCtx.locals[index] = value
 
 	return nil
 }
 
-func (funcCtx *FuncContext) GetLocalInt32(idx types.Index) (int32, error) {
-	key := makeIndexKey(idx)
-	value, ok := funcCtx.locals[key]
-	if !ok {
-		return 0, errLocalVariableInconsistent
+func (funcCtx *FuncContext) GetLocal(idx types.Index) (Value, error) {
+	var value Value
+	index, err := funcCtx.getIndex(idx)
+	if err != nil {
+		return value, err
 	}
 
-	v, ok := value.Int32()
+	value, ok := funcCtx.locals[index]
 	if !ok {
-		return 0, errLocalVariableInconsistent
+		return value, errLocalVariableInconsistent
 	}
 
-	return v, nil
+	return value, nil
+}
+
+func (funcCtx *FuncContext) getIndex(idx types.Index) (int, error) {
+	if idx.IsID() {
+		i, ok := funcCtx.idToIndex[idx.ID]
+		if !ok {
+			return 0, errLocalVariableInconsistent
+		}
+		return i, nil
+	}
+
+	return idx.Index, nil
 }
